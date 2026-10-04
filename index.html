@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vehicle Service Management</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f4f6fa;--card:#fff;--tx:#1b2430;--mu:#6b7686;--bd:#e2e7ef;--pr:#2563eb;--ok:#16a34a;--wn:#d97706;--in:#7c3aed}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f141b;--card:#18202a;--tx:#e8edf4;--mu:#92a0b3;--bd:#27313f;--pr:#4f8bff;--ok:#34d399;--wn:#fbbf24;--in:#a78bfa}}
+:root[data-theme="dark"]{--bg:#0f141b;--card:#18202a;--tx:#e8edf4;--mu:#92a0b3;--bd:#27313f;--pr:#4f8bff;--ok:#34d399;--wn:#fbbf24;--in:#a78bfa}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--bd)}
+h1{font-size:18px;margin:0}h2{font-size:15px;margin:0 0 12px}
+.roles{display:flex;gap:6px;background:var(--bg);padding:4px;border-radius:10px}
+.roles button{border:0;background:none;color:var(--mu);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:14px}
+.roles button.on{background:var(--pr);color:#fff}
+main{max-width:1100px;margin:0 auto;padding:20px;display:grid;gap:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat,.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px}
+.stat b{display:block;font-size:26px;margin-top:4px}.stat span{color:var(--mu);font-size:13px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
+th{color:var(--mu);font-weight:600;font-size:12px;text-transform:uppercase}
+form{display:grid;gap:8px}
+input,select{padding:9px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:14px;width:100%}
+.btn{border:0;background:var(--pr);color:#fff;padding:9px 14px;border-radius:8px;cursor:pointer;font-size:14px}
+.btn.s{padding:5px 10px;font-size:12px}
+.tag{padding:3px 9px;border-radius:99px;font-size:12px;color:#fff}
+.Pending{background:var(--wn)}.Assigned{background:var(--in)}.InProgress{background:var(--pr)}.Completed{background:var(--ok)}
+.empty{color:var(--mu);padding:10px 0}
+.who{display:flex;gap:8px;align-items:center;color:var(--mu);font-size:13px}.who select{width:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>🚗 Vehicle Service Management</h1>
+  <div class="roles" id="roles"></div>
+  <div class="who" id="who"></div>
+</header>
+<main id="app"></main>
+
+<script>
+const S={
+  customers:[{id:1,name:'Rahul Patil'},{id:2,name:'Sneha Kulkarni'}],
+  vehicles:[{id:1,cid:1,model:'Honda City',no:'MH07 AB 1234'},{id:2,cid:2,model:'Royal Enfield 350',no:'MH07 CD 5678'}],
+  mechanics:[{id:1,name:'Suresh'},{id:2,name:'Amit'}],
+  types:[{name:'General Service',price:1500},{name:'Oil Change',price:800},{name:'Brake Repair',price:2200},{name:'Wheel Alignment',price:1000}],
+  jobs:[{id:1,vid:1,cid:1,type:'Oil Change',mid:1,status:'InProgress',date:'2026-10-03'},{id:2,vid:2,cid:2,type:'General Service',mid:null,status:'Pending',date:'2026-10-04'}],
+  role:'customer',cid:1,mid:1
+};
+const STATUS=['Assigned','InProgress','Completed'];
+const $=s=>document.querySelector(s);
+const nid=a=>a.reduce((m,x)=>Math.max(m,x.id),0)+1;
+const price=t=>(S.types.find(x=>x.name===t)||{price:0}).price;
+const veh=id=>S.vehicles.find(v=>v.id==id)||{model:'-',no:''};
+const cust=id=>(S.customers.find(c=>c.id==id)||{name:'-'}).name;
+const mech=id=>(S.mechanics.find(m=>m.id==id)||{name:'Not assigned'}).name;
+const tag=s=>`<span class="tag ${s}">${s.replace('InProgress','In Progress')}</span>`;
+const opts=(arr,f,sel)=>arr.map(x=>`<option value="${x.id??x.name}" ${(x.id??x.name)==sel?'selected':''}>${f(x)}</option>`).join('');
+const stats=a=>`<div class="stats">${a.map(([l,v])=>`<div class="stat"><span>${l}</span><b>${v}</b></div>`).join('')}</div>`;
+const table=(h,rows)=>rows.length?`<div class="wrap"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></div>`:'<div class="empty">No data yet.</div>';
+const money=n=>'₹'+n.toLocaleString('en-IN');
+
+function head(){
+  $('#roles').innerHTML=[['customer','👤 Customer'],['admin','🛠 Admin'],['mechanic','🔧 Mechanic']]
+   .map(([r,l])=>`<button class="${S.role==r?'on':''}" onclick="S.role='${r}';render()">${l}</button>`).join('');
+  $('#who').innerHTML=S.role=='customer'?`Customer: <select onchange="S.cid=+this.value;render()">${opts(S.customers,c=>c.name,S.cid)}</select>`
+   :S.role=='mechanic'?`Mechanic: <select onchange="S.mid=+this.value;render()">${opts(S.mechanics,m=>m.name,S.mid)}</select>`:'Logged in as Admin';
+}
+
+function customerView(){
+  const myV=S.vehicles.filter(v=>v.cid==S.cid), myJ=S.jobs.filter(j=>j.cid==S.cid);
+  const bills=myJ.filter(j=>j.status=='Completed');
+  return stats([['My vehicles',myV.length],['Total bookings',myJ.length],['Active services',myJ.filter(j=>j.status!='Completed').length],['Total billed',money(bills.reduce((s,j)=>s+price(j.type),0))]])+`
+  <div class="grid2">
+   <div class="card"><h2>➕ Add Vehicle</h2><form onsubmit="addVehicle(event)">
+     <input id="vm" placeholder="Model (e.g. Maruti Swift)" required><input id="vn" placeholder="Reg. number (MH07 XY 0000)" required>
+     <button class="btn">Add Vehicle</button></form></div>
+   <div class="card"><h2>📅 Book Service</h2><form onsubmit="book(event)">
+     <select id="bv" required>${myV.length?opts(myV,v=>v.model+' - '+v.no):'<option value="">Add a vehicle first</option>'}</select>
+     <select id="bt">${opts(S.types,t=>`${t.name} (${money(t.price)})`)}</select>
+     <input type="date" id="bd" required><button class="btn">Book Service</button></form></div>
+  </div>
+  <div class="card"><h2>🚘 My Vehicles</h2>${table(['Model','Number'],myV.map(v=>[v.model,v.no]))}</div>
+  <div class="card"><h2>🔧 My Services</h2>${table(['Vehicle','Service','Date','Mechanic','Status'],myJ.map(j=>[veh(j.vid).model,j.type,j.date,mech(j.mid),tag(j.status)]))}</div>
+  <div class="card"><h2>🧾 My Bills</h2>${table(['Bill #','Vehicle','Service','Amount'],bills.map(j=>['INV-'+(1000+j.id),veh(j.vid).model,j.type,money(price(j.type))]))}
+   <div class="empty">Bill is generated once a service is completed.</div></div>`;
+}
+
+function adminView(){
+  const rev=S.jobs.filter(j=>j.status=='Completed').reduce((s,j)=>s+price(j.type),0);
+  return stats([['Customers',S.customers.length],['Vehicles',S.vehicles.length],['Mechanics',S.mechanics.length],['Pending jobs',S.jobs.filter(j=>j.status=='Pending').length],['Revenue',money(rev)]])+`
+  <div class="card"><h2>📋 Services — assign mechanic</h2>${table(['#','Customer','Vehicle','Service','Mechanic','Status'],
+   S.jobs.map(j=>[j.id,cust(j.cid),veh(j.vid).model,j.type,
+   `<select onchange="assign(${j.id},this.value)"><option value="">-- assign --</option>${opts(S.mechanics,m=>m.name,j.mid)}</select>`,tag(j.status)]))}</div>
+  <div class="grid2">
+   <div class="card"><h2>👥 Customers</h2><form onsubmit="addC(event)" style="grid-template-columns:1fr auto"><input id="cn" placeholder="New customer name" required><button class="btn">Add</button></form>
+    ${table(['ID','Name','Vehicles'],S.customers.map(c=>[c.id,c.name,S.vehicles.filter(v=>v.cid==c.id).length]))}</div>
+   <div class="card"><h2>🔧 Mechanics</h2><form onsubmit="addM(event)" style="grid-template-columns:1fr auto"><input id="mn" placeholder="New mechanic name" required><button class="btn">Add</button></form>
+    ${table(['ID','Name','Active jobs'],S.mechanics.map(m=>[m.id,m.name,S.jobs.filter(j=>j.mid==m.id&&j.status!='Completed').length]))}</div>
+   <div class="card"><h2>🚗 Vehicles</h2>${table(['Owner','Model','Number'],S.vehicles.map(v=>[cust(v.cid),v.model,v.no]))}</div>
+   <div class="card"><h2>🧰 Service Types</h2><form onsubmit="addT(event)" style="grid-template-columns:1fr 100px auto"><input id="tn" placeholder="Service name" required><input id="tp" type="number" min="0" placeholder="₹" required><button class="btn">Add</button></form>
+    ${table(['Service','Price'],S.types.map(t=>[t.name,money(t.price)]))}</div>
+  </div>`;
+}
+
+function mechanicView(){
+  const mine=S.jobs.filter(j=>j.mid==S.mid);
+  return stats([['Assigned to me',mine.length],['In progress',mine.filter(j=>j.status=='InProgress').length],['Completed',mine.filter(j=>j.status=='Completed').length]])+`
+  <div class="card"><h2>🔧 My Assigned Services</h2>${table(['#','Vehicle','Number','Service','Date','Status','Update'],
+   mine.map(j=>[j.id,veh(j.vid).model,veh(j.vid).no,j.type,j.date,tag(j.status),
+   `<select onchange="setStatus(${j.id},this.value)">${STATUS.map(s=>`<option ${s==j.status?'selected':''} value="${s}">${s.replace('InProgress','In Progress')}</option>`).join('')}</select>`]))}</div>`;
+}
+
+function render(){head();$('#app').innerHTML={customer:customerView,admin:adminView,mechanic:mechanicView}[S.role]();}
+function addVehicle(e){e.preventDefault();S.vehicles.push({id:nid(S.vehicles),cid:S.cid,model:$('#vm').value,no:$('#vn').value.toUpperCase()});render()}
+function book(e){e.preventDefault();if(!$('#bv').value)return;S.jobs.push({id:nid(S.jobs),vid:+$('#bv').value,cid:S.cid,type:$('#bt').value,mid:null,status:'Pending',date:$('#bd').value});render()}
+function assign(id,m){const j=S.jobs.find(x=>x.id==id);j.mid=m?+m:null;j.status=m?(j.status=='Pending'?'Assigned':j.status):'Pending';render()}
+function setStatus(id,s){S.jobs.find(x=>x.id==id).status=s;render()}
+function addC(e){e.preventDefault();S.customers.push({id:nid(S.customers),name:$('#cn').value});render()}
+function addM(e){e.preventDefault();S.mechanics.push({id:nid(S.mechanics),name:$('#mn').value});render()}
+function addT(e){e.preventDefault();S.types.push({name:$('#tn').value,price:+$('#tp').value});render()}
+render();
+</script>
+</body>
+</html>
